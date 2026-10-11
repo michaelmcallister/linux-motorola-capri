@@ -1983,6 +1983,7 @@ static int qcom_geni_serial_suspend(struct device *dev)
 	struct qcom_geni_serial_port *port = dev_get_drvdata(dev);
 	struct uart_port *uport = &port->uport;
 	struct qcom_geni_private_data *private_data = uport->private_data;
+	int ret;
 
 	/*
 	 * This is done so we can hit the lowest possible state in suspend
@@ -1992,7 +1993,21 @@ static int qcom_geni_serial_suspend(struct device *dev)
 		geni_icc_set_tag(&port->se, QCOM_ICC_TAG_ACTIVE_ONLY);
 		geni_icc_set_bw(&port->se);
 	}
-	return uart_suspend_port(private_data->drv, uport);
+	/*
+	 * uart_suspend_port() sets uport->suspended before stopping RX/TX
+	 * and calling ->shutdown(). Our ISR returns IRQ_NONE once that flag
+	 * is set, so a pending level IRQ can storm before ->shutdown() gets
+	 * to disable it. Mask the IRQ across the whole transition.
+	 *
+	 * ->shutdown() owns a separate disable reference, balanced by
+	 * ->startup() on resume. Drop only our temporary reference here,
+	 * including when the serial core leaves a wake-capable port active.
+	 */
+	disable_irq(uport->irq);
+	ret = uart_suspend_port(private_data->drv, uport);
+	enable_irq(uport->irq);
+
+	return ret;
 }
 
 static int qcom_geni_serial_resume(struct device *dev)
