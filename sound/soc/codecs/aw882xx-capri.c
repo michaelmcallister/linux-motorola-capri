@@ -228,8 +228,11 @@ static const struct snd_kcontrol_new capri_controls[] = {
 static const struct snd_soc_dapm_widget capri_widgets[] = {
 	SND_SOC_DAPM_DAC("DAC", "Speaker Playback", SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_OUTPUT("OUT"),
+	SND_SOC_DAPM_INPUT("IV Sense"),
+	SND_SOC_DAPM_ADC("IV Sense ADC", "Speaker Feedback", SND_SOC_NOPM, 0, 0),
 };
-static const struct snd_soc_dapm_route capri_routes[] = { { "OUT", NULL, "DAC" } };
+static const struct snd_soc_dapm_route capri_routes[] = { { "OUT", NULL, "DAC" },
+	{ "IV Sense ADC", NULL, "IV Sense" } };
 static const struct snd_soc_component_driver capri_component = {
 	.controls = capri_controls, .num_controls = ARRAY_SIZE(capri_controls),
 	.dapm_widgets = capri_widgets, .num_dapm_widgets = ARRAY_SIZE(capri_widgets),
@@ -242,6 +245,8 @@ static const struct snd_soc_dai_ops capri_dai_ops = {
 static struct snd_soc_dai_driver capri_dai = {
 	.name = "capri-amp-aif",
 	.playback = { .stream_name = "Speaker Playback", .channels_min = 1, .channels_max = 2,
+		.rates = SNDRV_PCM_RATE_48000, .formats = SNDRV_PCM_FMTBIT_S16_LE },
+	.capture = { .stream_name = "Speaker Feedback", .channels_min = 2, .channels_max = 2,
 		.rates = SNDRV_PCM_RATE_48000, .formats = SNDRV_PCM_FMTBIT_S16_LE },
 	.ops = &capri_dai_ops,
 };
