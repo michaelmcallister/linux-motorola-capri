@@ -73,6 +73,7 @@ struct dwc3_qcom_port {
 struct dwc3_qcom {
 	struct device		*dev;
 	void __iomem		*qscratch_base;
+	u32 saved_general, saved_hs, saved_ss;
 	struct platform_device	*dwc3;
 	struct clk		**clks;
 	int			num_clocks;
@@ -423,6 +424,8 @@ static void dwc3_qcom_enable_interrupts(struct dwc3_qcom *qcom)
 		dwc3_qcom_enable_port_interrupts(&qcom->ports[i]);
 }
 
+static void dwc3_qcom_select_utmi_clk(struct dwc3_qcom *qcom);
+
 static int dwc3_qcom_suspend(struct dwc3_qcom *qcom, bool wakeup)
 {
 	u32 val;
@@ -430,6 +433,10 @@ static int dwc3_qcom_suspend(struct dwc3_qcom *qcom, bool wakeup)
 
 	if (qcom->is_suspended)
 		return 0;
+
+	qcom->saved_general = readl(qcom->qscratch_base + QSCRATCH_GENERAL_CFG);
+	qcom->saved_hs = readl(qcom->qscratch_base + QSCRATCH_HS_PHY_CTRL);
+	qcom->saved_ss = readl(qcom->qscratch_base + QSCRATCH_SS_PHY_CTRL);
 
 	for (i = 0; i < qcom->num_ports; i++) {
 		val = readl(qcom->qscratch_base + pwr_evnt_irq_stat_reg[i]);
@@ -482,6 +489,22 @@ static int dwc3_qcom_resume(struct dwc3_qcom *qcom, bool wakeup)
 	ret = dwc3_qcom_interconnect_enable(qcom);
 	if (ret)
 		dev_warn(qcom->dev, "failed to enable interconnect: %d\n", ret);
+
+	/*
+	 * The USB power domain can lose QSCRATCH context during system sleep.
+	 * Restore our UTMI clock selection and software VBUS overrides before
+	 * the child DWC3 core resumes and attempts to reconnect the gadget.
+	 */
+	if (qcom->saved_general & PIPE_UTMI_CLK_SEL)
+		dwc3_qcom_select_utmi_clk(qcom);
+	dwc3_qcom_clrbits(qcom->qscratch_base, QSCRATCH_HS_PHY_CTRL,
+			  UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL);
+	dwc3_qcom_setbits(qcom->qscratch_base, QSCRATCH_HS_PHY_CTRL,
+			  qcom->saved_hs & (UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL));
+	dwc3_qcom_clrbits(qcom->qscratch_base, QSCRATCH_SS_PHY_CTRL,
+			  LANE0_PWR_PRESENT);
+	dwc3_qcom_setbits(qcom->qscratch_base, QSCRATCH_SS_PHY_CTRL,
+			  qcom->saved_ss & LANE0_PWR_PRESENT);
 
 	/* Clear existing events from PHY related to L2 in/out */
 	for (i = 0; i < qcom->num_ports; i++) {
