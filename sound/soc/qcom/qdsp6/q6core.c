@@ -3,6 +3,7 @@
 // Copyright (c) 2018, Linaro Limited
 
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include <linux/wait.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -76,6 +77,8 @@ static int q6core_callback(struct apr_device *adev, const struct apr_resp_pkt *d
 	result = data->payload;
 	switch (hdr->opcode) {
 	case APR_BASIC_RSP_RESULT:{
+		if (data->payload_size < sizeof(*result))
+			return -EINVAL;
 		result = data->payload;
 		switch (result->opcode) {
 		case AVCS_GET_VERSIONS:
@@ -131,6 +134,8 @@ static int q6core_callback(struct apr_device *adev, const struct apr_resp_pkt *d
 		break;
 	}
 	case AVCS_CMDRSP_ADSP_EVENT_GET_STATE:
+		if (data->payload_size < sizeof(u32))
+			return -EINVAL;
 		core->get_state_supported = true;
 		core->avcs_state = result->opcode;
 
@@ -206,10 +211,13 @@ static int q6core_get_svc_versions(struct q6core *core)
 static bool __q6core_is_adsp_ready(struct q6core *core)
 {
 	struct apr_device *adev = core->adev;
-	struct apr_pkt pkt;
+	struct apr_pkt pkt = {};
 	int rc;
 
-	core->get_state_supported = false;
+	/* Only an explicit unsupported response may bypass the state check. */
+	core->get_state_supported = true;
+	core->resp_received = false;
+	core->avcs_state = 0;
 
 	pkt.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				      APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -225,13 +233,8 @@ static bool __q6core_is_adsp_ready(struct q6core *core)
 	if (rc > 0 && core->resp_received) {
 		core->resp_received = false;
 
-		if (core->avcs_state)
-			return true;
+		return core->avcs_state || !core->get_state_supported;
 	}
-
-	/* assume that the adsp is up if we not support this command */
-	if (!core->get_state_supported)
-		return true;
 
 	return false;
 }
@@ -318,6 +321,9 @@ bool q6core_is_adsp_ready(void)
 			ret = false;
 			break;
 		}
+
+		/* Error responses can arrive immediately while AVCS starts. */
+		msleep(20);
 	}
 
 	mutex_unlock(&g_core->lock);
