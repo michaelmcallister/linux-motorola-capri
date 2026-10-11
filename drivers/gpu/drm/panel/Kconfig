@@ -1348,4 +1348,11 @@ config DRM_PANEL_XINPENG_XPP055C272
 	  Say Y here if you want to enable support for the Xinpeng
 	  XPP055C272 controller for 720x1280 LCD panels with MIPI/RGB/SPI
 	  system interfaces.
+config DRM_PANEL_MOTOROLA_CAPRI_DJN
+	tristate "Motorola Moto G10 DJN NT36525B panel"
+	depends on OF && DRM_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && GPIOLIB && REGULATOR
+	help
+	  Enable motorola moto g10 djn nt36525b panel.
+
+
 endmenu
