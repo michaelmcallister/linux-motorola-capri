@@ -2006,8 +2006,15 @@ static int qcom_geni_serial_suspend(struct device *dev)
 	disable_irq(uport->irq);
 	ret = uart_suspend_port(private_data->drv, uport);
 	enable_irq(uport->irq);
+	if (ret)
+		return ret;
 
-	return ret;
+	/* Keep an explicitly unsuspended serial console active. */
+	if (!console_suspend_enabled && uart_console(uport))
+		return 0;
+
+	/* Open serial children can retain runtime-PM references in sleep. */
+	return pm_runtime_force_suspend(dev);
 }
 
 static int qcom_geni_serial_resume(struct device *dev)
@@ -2016,6 +2023,12 @@ static int qcom_geni_serial_resume(struct device *dev)
 	struct qcom_geni_serial_port *port = dev_get_drvdata(dev);
 	struct uart_port *uport = &port->uport;
 	struct qcom_geni_private_data *private_data = uport->private_data;
+
+	if (console_suspend_enabled || !uart_console(uport)) {
+		ret = pm_runtime_force_resume(dev);
+		if (ret)
+			return ret;
+	}
 
 	ret = uart_resume_port(private_data->drv, uport);
 	if (uart_console(uport)) {
