@@ -1187,3 +1187,11 @@ config MACSMC_POWER
 	  Say Y or M here if you have an Apple Silicon based Mac.
 
 endif # POWER_SUPPLY
+
+
+config BATTERY_CAPRI_PMI632
+	tristate "Motorola Moto G10 PMI632 battery monitor"
+	depends on POWER_SUPPLY && MFD_SPMI_PMIC && OF
+	help
+	  Enable motorola moto g10 pmi632 battery monitor.
+
