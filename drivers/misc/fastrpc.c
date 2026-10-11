@@ -1278,7 +1278,14 @@ static int fastrpc_internal_invoke(struct fastrpc_user *fl,  u32 kernel,
 		if (!wait_for_completion_timeout(&ctx->work, 10 * HZ))
 			err = -ETIMEDOUT;
 	} else {
-		err = wait_for_completion_interruptible(&ctx->work);
+		/*
+		 * Preserve the in-flight request while freezing userspace. A fake
+		 * freezer signal would otherwise restart the ioctl and submit a
+		 * second request while the DSP still owns the first one. Normal
+		 * signals remain interruptible; this only changes freezer waits.
+		 */
+		err = wait_for_completion_state(&ctx->work,
+					TASK_INTERRUPTIBLE | TASK_FREEZABLE);
 	}
 
 	if (err)
