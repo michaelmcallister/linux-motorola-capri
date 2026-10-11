@@ -1386,6 +1386,7 @@ static void qcom_geni_serial_set_termios(struct uart_port *uport,
 	struct qcom_geni_serial_port *port = to_dev_port(uport);
 	unsigned int baud;
 	unsigned long timeout;
+	unsigned long flags;
 	u32 bits_per_char;
 	u32 tx_trans_cfg;
 	u32 tx_parity_cfg;
@@ -1478,6 +1479,14 @@ static void qcom_geni_serial_set_termios(struct uart_port *uport,
 	writel(bits_per_char, uport->membase + SE_UART_TX_WORD_LEN);
 	writel(bits_per_char, uport->membase + SE_UART_RX_WORD_LEN);
 	writel(stop_bit_len, uport->membase + SE_UART_TX_STOP_BIT_LEN);
+
+	/* CTS gates TX in hardware; no CTS interrupt updates hw_stopped. */
+	uart_port_lock_irqsave(uport, &flags);
+	if (termios->c_cflag & CRTSCTS)
+		uport->status |= UPSTAT_AUTOCTS;
+	else
+		uport->status &= ~UPSTAT_AUTOCTS;
+	uart_port_unlock_irqrestore(uport, flags);
 }
 
 #ifdef CONFIG_SERIAL_QCOM_GENI_CONSOLE
