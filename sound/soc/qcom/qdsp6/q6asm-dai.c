@@ -489,10 +489,13 @@ static snd_pcm_uframes_t q6asm_dai_pointer(struct snd_soc_component *component,
 	snd_pcm_uframes_t ptr;
 
 	ptr = q6asm_get_hw_pointer(prtd->audio_client, substream->stream) * runtime->period_size;
-	if (ptr)
-		return ptr - 1;
+	/* A completion covers the whole period, not all but its last frame.
+	 * Report the next frame in the ring, wrapping at the buffer boundary.
+	 */
+	if (ptr >= runtime->buffer_size)
+		return 0;
 
-	return 0;
+	return ptr;
 }
 
 static int q6asm_dai_hw_params(struct snd_soc_component *component,
