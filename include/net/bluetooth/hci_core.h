@@ -577,6 +577,7 @@ struct hci_dev {
 	const char		*hw_info;
 	const char		*fw_info;
 	struct dentry		*debugfs;
+	u64			nonstandard_scan_requests;
 
 	struct hci_devcoredump	dump;
 

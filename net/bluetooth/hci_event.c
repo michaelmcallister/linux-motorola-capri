@@ -6415,6 +6415,21 @@ static void hci_le_adv_report_evt(struct hci_dev *hdev, void *data,
 					info->length + 1))
 			break;
 
+		/* WCN3950's legacy type 0x05 extension reports a scan request.
+		 * Its six-byte payload is the target address, not AD structures.
+		 * It cannot establish that the scanner is advertising or provide
+		 * connection/discovery data. Other types and malformed variants
+		 * continue through the normal validation/error path.
+		 */
+		if (hci_test_quirk(hdev, HCI_QUIRK_NONSTANDARD_LE_SCAN_REQ) &&
+		    info->type == 0x05 && info->length == sizeof(bdaddr_t) &&
+		    info->bdaddr_type <= ADDR_LE_DEV_RANDOM) {
+			if (!hdev->nonstandard_scan_requests)
+				bt_dev_info(hdev, "Handling nonstandard LE scan-request reports");
+			hdev->nonstandard_scan_requests++;
+			continue;
+		}
+
 		hci_store_wake_reason(hdev, &info->bdaddr, info->bdaddr_type);
 
 		if (info->length <= max_adv_len(hdev)) {

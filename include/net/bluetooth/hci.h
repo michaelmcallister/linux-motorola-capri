@@ -375,6 +375,12 @@ enum {
 	 */
 	HCI_QUIRK_BROKEN_READ_PAGE_SCAN_TYPE,
 
+	/* WCN3950 reports legacy scan requests as advertising type 0x05.
+	 * These carry an advertiser address, not advertising data. Ignore
+	 * only that known format in the discovery path; retain raw monitoring.
+	 */
+	HCI_QUIRK_NONSTANDARD_LE_SCAN_REQ,
+
 	__HCI_NUM_QUIRKS,
 };
 

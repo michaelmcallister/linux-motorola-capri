@@ -1194,6 +1194,10 @@ DEFINE_QUIRK_ATTRIBUTE(quirk_simultaneous_discovery,
 
 void hci_debugfs_create_le(struct hci_dev *hdev)
 {
+	if (hci_test_quirk(hdev, HCI_QUIRK_NONSTANDARD_LE_SCAN_REQ))
+		debugfs_create_u64("nonstandard_scan_requests", 0444,
+				   hdev->debugfs, &hdev->nonstandard_scan_requests);
+
 	debugfs_create_file("identity", 0400, hdev->debugfs, hdev,
 			    &identity_fops);
 	debugfs_create_file("rpa_timeout", 0644, hdev->debugfs, hdev,

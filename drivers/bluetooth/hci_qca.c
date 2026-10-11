@@ -1937,6 +1937,8 @@ static int qca_setup(struct hci_uart *hu)
 	 * simultaneously.
 	 */
 	hci_set_quirk(hdev, HCI_QUIRK_SIMULTANEOUS_DISCOVERY);
+	if (soc_type == QCA_WCN3950)
+		hci_set_quirk(hdev, HCI_QUIRK_NONSTANDARD_LE_SCAN_REQ);
 
 	switch (soc_type) {
 	case QCA_QCA2066:
