@@ -465,4 +465,14 @@ config ARCH_ZYNQMP
 	help
 	  This enables support for Xilinx ZynqMP Family
 
+config ARM64_MOTOROLA_CAPRI_BOOT
+	bool "Motorola Moto G10 bootloader compatibility"
+	depends on ARCH_QCOM
+	depends on RELOCATABLE && FRAMEBUFFER_CONSOLE
+	help
+	  Select the Moto G10 device tree while retaining the stock bootloader's
+	  RAM and initramfs layout. This supports the Motorola header-v3 boot
+	  image format with an unchanged vendor_boot partition.
+	  Generate include/generated/capri-dtb.h as described in README.md.
+
 endmenu # "Platform selection"

@@ -87,3 +87,6 @@ endif
 
 # for cleaning
 subdir- += vdso vdso32
+
+obj-$(CONFIG_ARM64_MOTOROLA_CAPRI_BOOT) += capri-fdt.o capri-early-console.o
+$(obj)/capri-fdt.o: include/generated/capri-dtb.h

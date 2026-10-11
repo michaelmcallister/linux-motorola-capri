@@ -167,18 +167,26 @@ static void __init smp_build_mpidr_hash(void)
 		pr_warn("Large number of MPIDR hash buckets detected\n");
 }
 
+extern void capri_early_console_init(void);
+extern void *capri_prepare_fdt(const void *, phys_addr_t *, int *);
+
 static void __init setup_machine_fdt(phys_addr_t dt_phys)
 {
 	int size = 0;
 	void *dt_virt = fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL);
 	const char *name;
 
+	if (IS_ENABLED(CONFIG_ARM64_MOTOROLA_CAPRI_BOOT)) {
+		capri_early_console_init();
+		dt_virt = capri_prepare_fdt(dt_virt, &dt_phys, &size);
+	}
+
 	if (dt_virt)
 		memblock_reserve(dt_phys, size);
 
 	/*
-	 * dt_virt is a fixmap address, hence __pa(dt_virt) can't be used.
-	 * Pass dt_phys directly.
+	 * Use the physical address supplied by the firmware mapping or the
+	 * Capri board-DT handoff, rather than deriving it from a mapping alias.
 	 */
 	if (!early_init_dt_scan(dt_virt, dt_phys)) {
 		pr_crit("\n"
@@ -196,8 +204,9 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 			cpu_relax();
 	}
 
-	/* Early fixups are done, map the FDT as read-only now */
-	fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL_RO);
+	/* The Capri DT already has a permanent __ro_after_init mapping. */
+	if (!IS_ENABLED(CONFIG_ARM64_MOTOROLA_CAPRI_BOOT))
+		fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL_RO);
 
 	name = of_flat_dt_get_machine_name();
 	if (!name)
