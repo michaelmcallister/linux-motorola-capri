@@ -1414,4 +1414,12 @@ config TOUCHSCREEN_HIMAX_HX83112B
 	  To compile this driver as a module, choose M here: the
 	  module will be called himax_hx83112b.
 
+config TOUCHSCREEN_NOVATEK_CAPRI
+	tristate "Motorola Moto G10 NT36525B SPI touchscreen"
+	depends on SPI && OF && GPIOLIB
+	select FW_LOADER
+	help
+	  Enable motorola moto g10 nt36525b spi touchscreen.
+
+
 endif
