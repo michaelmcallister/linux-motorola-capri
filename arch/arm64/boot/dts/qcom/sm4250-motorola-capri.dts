@@ -1,0 +1,580 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/* Motorola Moto G10 XT2127-2.
+ * PM6125 regulator definitions derived from sm4250-oneplus-billie2.dts,
+ * Copyright (c) 2021 Iskren Chernev. Board wiring from the saved Capri DT.
+ */
+/dts-v1/;
+#include "sm4250.dtsi"
+#include "pm6125.dtsi"
+#include "capri-battery.dtsi"
+#include <dt-bindings/sound/qcom,q6afe.h>
+
+/ {
+ model = "Motorola Moto G10";
+ compatible = "motorola,capri", "qcom,sm4250";
+ qcom,msm-id = <0x1a1 0x10000>;
+ qcom,board-id = <0 0xb200>;
+
+ aliases { mmc0 = &sdhc_1; spi2 = &spi2; serial0 = &uart3; };
+ chosen {
+  #address-cells = <2>;
+  #size-cells = <2>;
+  ranges;
+  stdout-path = "framebuffer0";
+  framebuffer0: framebuffer@5c000000 {
+   compatible = "simple-framebuffer";
+   reg = <0 0x5c000000 0 0x465000>;
+   width = <720>;
+   height = <1600>;
+   stride = <2880>;
+   format = "a8r8g8b8";
+  };
+ };
+ gpio-keys {
+  compatible = "gpio-keys";
+  pinctrl-names = "default";
+  pinctrl-0 = <&volume_up_default>;
+  key-volume-up {
+   label = "Volume Up";
+   gpios = <&pm6125_gpios 5 GPIO_ACTIVE_LOW>;
+   linux,code = <KEY_VOLUMEUP>;
+   debounce-interval = <15>;
+   wakeup-source;
+  };
+ };
+ sound {
+  compatible = "motorola,capri-sndcard";
+  model = "Capri Mainline Speaker";
+  pinctrl-names = "default";
+  pinctrl-0 = <&capri_mi2s_default &capri_mi2s_egpio>;
+  widgets = "Speaker", "Speaker";
+  audio-routing = "Speaker", "OUT";
+  frontend-dai-link {
+   link-name = "MultiMedia1";
+   cpu { sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>; };
+  };
+  feedback-frontend-dai-link {
+   link-name = "MultiMedia2";
+   cpu { sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA2>; };
+  };
+  feedback-dai-link {
+   link-name = "Primary MI2S Speaker Feedback";
+   cpu { sound-dai = <&q6afedai PRIMARY_MI2S_TX>; };
+   platform { sound-dai = <&q6routing>; };
+   codec { sound-dai = <&speaker_amp>; };
+  };
+  speaker-dai-link {
+   link-name = "Primary MI2S Speaker";
+   cpu { sound-dai = <&q6afedai PRIMARY_MI2S_RX>; };
+   platform { sound-dai = <&q6routing>; };
+   codec { sound-dai = <&speaker_amp>; };
+  };
+ };
+};
+
+/* Match this handset's firmware carveouts, not the SM6115 reference layout. */
+&pil_cdsp_mem { reg = <0 0x51a00000 0 0x800000>; };
+&pil_adsp_mem { reg = <0 0x52200000 0 0x1c00000>; };
+&pil_ipa_fw_mem { reg = <0 0x53e00000 0 0x10000>; };
+&pil_ipa_gsi_mem { reg = <0 0x53e10000 0 0x5000>; };
+&pil_gpu_mem { reg = <0 0x53e15000 0 0x2000>; };
+
+/* Native Adreno and DPU/DSI display path; firmware framebuffer is early console. */
+&gpu { status = "okay"; };
+&gpu_zap_shader { firmware-name = "qcom/motorola/capri/a610_zap.mdt"; };
+
+/* Remote-processor firmware is supplied by the distribution. */
+&remoteproc_mpss {
+ firmware-name = "modem.mdt";
+ status = "okay";
+};
+&remoteproc_adsp {
+ firmware-name = "adsp2.mdt";
+ status = "okay";
+};
+&q6afedai {
+ dai@11 { reg = <PRIMARY_MI2S_TX>; qcom,sd-lines = <1>; };
+ dai@10 {
+  reg = <PRIMARY_MI2S_RX>;
+  qcom,sd-lines = <0>;
+ };
+};
+&q6asmdai {
+ dai@0 { direction = <Q6ASM_DAI_RX>; };
+ dai@1 { direction = <Q6ASM_DAI_TX>; };
+};
+&lpass_tlmm {
+ capri_mi2s_default: capri-mi2s-state {
+  clock-pins {
+   pins = "gpio6";
+   function = "i2s1_clk";
+   drive-strength = <8>;
+   bias-disable;
+   output-high;
+  };
+  word-select-pins {
+   pins = "gpio7";
+   function = "i2s1_ws";
+   drive-strength = <8>;
+   bias-disable;
+   output-high;
+  };
+  feedback-pins {
+   pins = "gpio9";
+   function = "i2s1_data";
+   drive-strength = <8>;
+   bias-disable;
+   output-high;
+  };
+  data-pins {
+   pins = "gpio8";
+   function = "i2s1_data";
+   drive-strength = <8>;
+   bias-disable;
+   output-high;
+  };
+ };
+};
+&i2c1 {
+ status = "okay";
+ clock-frequency = <400000>;
+ speaker_amp: amplifier@34 {
+  compatible = "motorola,capri-aw882xx";
+  reg = <0x34>;
+  #sound-dai-cells = <0>;
+  reset-gpios = <&tlmm 97 GPIO_ACTIVE_LOW>;
+ };
+};
+&wifi {
+ vdd-0.8-cx-mx-supply = <&vreg_l8a>;
+ vdd-1.8-xo-supply = <&vreg_l16a>;
+ vdd-1.3-rfa-supply = <&vreg_l17a>;
+ vdd-3.3-ch0-supply = <&vreg_l23a>;
+ qcom,calibration-variant = "Motorola_Capri";
+ status = "okay";
+};
+
+&reserved_memory {
+ ramoops@af000000 {
+  compatible = "ramoops";
+  reg = <0 0xaf000000 0 0xbf800>;
+  console-size = <0x40000>;
+  pmsg-size = <0x40000>;
+  record-size = <0x20000>;
+ };
+ motorola-debug@aef9d800 {
+  reg = <0 0xaef9d800 0 0x62800>;
+  no-map;
+ };
+};
+
+&rpm_requests {
+	regulators-0 {
+		compatible = "qcom,rpm-pm6125-regulators";
+
+		vreg_s6a: s6 {
+			regulator-min-microvolt = <320000>;
+			regulator-max-microvolt = <1456000>;
+		};
+
+		vreg_s7a: s7 {
+			regulator-min-microvolt = <1280000>;
+			regulator-max-microvolt = <2040000>;
+		};
+
+		vreg_s8a: s8 {
+			regulator-min-microvolt = <1064000>;
+			regulator-max-microvolt = <1304000>;
+		};
+
+		vreg_l1a: l1 {
+			regulator-min-microvolt = <952000>;
+			regulator-max-microvolt = <1152000>;
+		};
+
+		vreg_l4a: l4 {
+			regulator-min-microvolt = <488000>;
+			regulator-max-microvolt = <1000000>;
+		};
+
+		vreg_l5a: l5 {
+			regulator-min-microvolt = <1648000>;
+			regulator-max-microvolt = <3056000>;
+		};
+
+		vreg_l6a: l6 {
+			regulator-min-microvolt = <576000>;
+			regulator-max-microvolt = <656000>;
+		};
+
+		vreg_l7a: l7 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1304000>;
+		};
+
+		vreg_l8a: l8 {
+			/* Handset ICNSS DT overrides CX/MX to 640 mV. */
+			regulator-min-microvolt = <640000>;
+			regulator-max-microvolt = <640000>;
+		};
+
+		vreg_l9a: l9 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			/* Shared panel/touch VDDIO; retain the firmware-powered bias rails. */
+			regulator-always-on;
+		};
+
+		vreg_l10a: l10 {
+			regulator-min-microvolt = <1704000>;
+			regulator-max-microvolt = <1904000>;
+		};
+
+		vreg_l11a: l11 {
+			regulator-min-microvolt = <1704000>;
+			regulator-max-microvolt = <1952000>;
+		};
+
+		vreg_l12a: l12 {
+			regulator-min-microvolt = <1624000>;
+			regulator-max-microvolt = <1984000>;
+		};
+
+		vreg_l13a: l13 {
+			regulator-min-microvolt = <1504000>;
+			regulator-max-microvolt = <1952000>;
+		};
+
+		vreg_l14a: l14 {
+			regulator-min-microvolt = <1704000>;
+			regulator-max-microvolt = <1904000>;
+		};
+
+		vreg_l15a: l15 {
+			regulator-min-microvolt = <2920000>;
+			regulator-max-microvolt = <3232000>;
+		};
+
+		vreg_l16a: l16 {
+			/* ICNSS WCN3990 XO supply setting. */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		vreg_l17a: l17 {
+			regulator-min-microvolt = <1304000>;
+			regulator-max-microvolt = <1304000>;
+		};
+
+		vreg_l18a: l18 {
+			regulator-min-microvolt = <1104000>;
+			regulator-max-microvolt = <1304000>;
+		};
+
+		vreg_l19a: l19 {
+			regulator-min-microvolt = <1624000>;
+			regulator-max-microvolt = <3304000>;
+		};
+
+		vreg_l20a: l20 {
+			regulator-min-microvolt = <1624000>;
+			regulator-max-microvolt = <3304000>;
+		};
+
+		vreg_l21a: l21 {
+			regulator-min-microvolt = <2400000>;
+			regulator-max-microvolt = <3544000>;
+		};
+
+		vreg_l22a: l22 {
+			regulator-min-microvolt = <2952000>;
+			regulator-max-microvolt = <3304000>;
+		};
+
+		vreg_l23a: l23 {
+			regulator-min-microvolt = <3296000>;
+			regulator-max-microvolt = <3304000>;
+		};
+
+		vreg_l24a: l24 {
+			regulator-min-microvolt = <2704000>;
+			regulator-max-microvolt = <3544000>;
+		};
+	};
+};
+
+
+&xo_board { clock-frequency = <19200000>; };
+&sleep_clk { clock-frequency = <32764>; };
+
+&mdss { status = "okay"; };
+&mdss_dsi0 {
+ vdda-supply = <&vreg_l18a>;
+ status = "okay";
+ panel: panel@0 {
+  compatible = "motorola,capri-djn-nt36525b";
+  reg = <0>;
+  reset-gpios = <&tlmm 82 GPIO_ACTIVE_LOW>;
+  vddio-supply = <&vreg_l9a>;
+  pinctrl-names = "default";
+  pinctrl-0 = <&panel_reset_default>;
+  port { panel_in: endpoint { remote-endpoint = <&mdss_dsi0_out>; }; };
+ };
+};
+&mdss_dsi0_out {
+ data-lanes = <0 1 2 3>;
+ remote-endpoint = <&panel_in>;
+};
+&mdss_dsi0_phy { status = "okay"; };
+
+&tlmm {
+ /* Avoid firmware-owned pins, as on the upstream SM4250/SM6115 boards. */
+ gpio-reserved-ranges = <14 4>;
+ /* Hand the shared clock/data pads to LPASS explicitly. DATA0/1 otherwise
+  * remain TLMM GPIOs and the amplifier receives clocks but silent data.
+  */
+ capri_mi2s_egpio: capri-mi2s-egpio-state {
+  pins = "gpio98", "gpio99", "gpio100", "gpio101";
+  function = "egpio";
+ };
+ panel_reset_default: panel-reset-state {
+  pins = "gpio82";
+  function = "gpio";
+  output-high;
+  bias-disable;
+  drive-strength = <8>;
+ };
+ touch_irq_default: touch-irq-state {
+  pins = "gpio67";
+  function = "gpio";
+  input-enable;
+  bias-pull-up;
+  drive-strength = <8>;
+ };
+ touch_reset_default: touch-reset-state {
+  pins = "gpio66";
+  function = "gpio";
+  output-high;
+  bias-pull-up;
+  drive-strength = <8>;
+ };
+};
+
+/* Flashless touchscreen; verified CS0/mode0 transport and device-owned firmware. */
+&gpi_dma0 { status = "okay"; };
+&qupv3_id_0 { status = "okay"; };
+/* The vendor driver overrides its DT to chip-select 0 and SPI_MODE_0. */
+&qup_spi2_default {
+ drive-strength = <6>;
+ /delete-property/ bias-pull-up;
+ bias-disable;
+};
+&spi2 {
+ pinctrl-0 = <&qup_spi2_default>;
+ status = "okay";
+ touchscreen@0 {
+  compatible = "novatek,nt36525b-spi";
+  reg = <0>;
+  spi-max-frequency = <9600000>;
+  interrupt-parent = <&tlmm>;
+  /* Vendor INT_TRIGGER_TYPE overrides its DT: rising edge. */
+  interrupts = <67 IRQ_TYPE_EDGE_RISING>;
+  reset-gpios = <&tlmm 66 GPIO_ACTIVE_LOW>;
+  pinctrl-names = "default";
+  pinctrl-0 = <&touch_irq_default &touch_reset_default>;
+  firmware-name = "novatek/capri-djn-nt36525b.bin";
+  panel = <&panel>;
+  touchscreen-size-x = <720>;
+  touchscreen-size-y = <1600>;
+ };
+};
+
+&sdhc_1 {
+ vmmc-supply = <&vreg_l24a>;
+ vqmmc-supply = <&vreg_l11a>;
+ pinctrl-names = "default", "sleep";
+ pinctrl-0 = <&sdc1_state_on>;
+ pinctrl-1 = <&sdc1_state_off>;
+ non-removable;
+ max-frequency = <50000000>;
+ status = "okay";
+};
+
+&usb {
+ /* The USB-C connector uses the HS PHY only. */
+ qcom,select-utmi-as-pipe-clk;
+ status = "okay";
+};
+&usb_dwc3 {
+ usb-role-switch;
+ role-switch-default-mode = "peripheral";
+ maximum-speed = "high-speed";
+ dr_mode = "otg";
+ phys = <&usb_hsphy>;
+ phy-names = "usb2-phy";
+};
+&usb_hsphy {
+ vdd-supply = <&vreg_l4a>;
+ vdda-pll-supply = <&vreg_l12a>;
+ vdda-phy-dpdm-supply = <&vreg_l15a>;
+ status = "okay";
+};
+
+&pon_pwrkey { status = "okay"; };
+&pon_resin { linux,code = <KEY_VOLUMEDOWN>; status = "okay"; };
+&pm6125_gpios {
+ volume_up_default: volume-up-state {
+  pins = "gpio5";
+  function = "normal";
+  input-enable;
+  bias-pull-up;
+  power-source = <0>;
+ };
+};
+
+/* PMI632 USB blocks from Linux pmi632.dtsi (BSD-3-Clause),
+ * Copyright (C) 2023 Luca Weiss <luca@z3ntu.xyz>.
+ */
+&spmi_bus {
+ pmic@2 {
+  pmi632_vbus: usb-vbus-regulator@1100 {
+   compatible = "qcom,pmi632-vbus-reg", "qcom,pm8150b-vbus-reg";
+   reg = <0x1100>;
+   regulator-min-microamp = <500000>;
+   regulator-max-microamp = <500000>;
+  };
+  pmi632_typec: typec@1500 {
+   compatible = "qcom,pmi632-typec";
+   reg = <0x1500>;
+   interrupts = <0x2 0x15 0x00 IRQ_TYPE_EDGE_RISING>,
+                <0x2 0x15 0x01 IRQ_TYPE_EDGE_BOTH>,
+                <0x2 0x15 0x02 IRQ_TYPE_EDGE_RISING>,
+                <0x2 0x15 0x03 IRQ_TYPE_EDGE_BOTH>,
+                <0x2 0x15 0x04 IRQ_TYPE_EDGE_RISING>,
+                <0x2 0x15 0x05 IRQ_TYPE_EDGE_RISING>,
+                <0x2 0x15 0x06 IRQ_TYPE_EDGE_BOTH>,
+                <0x2 0x15 0x07 IRQ_TYPE_EDGE_RISING>;
+   interrupt-names = "or-rid-detect-change", "vpd-detect", "cc-state-change",
+                     "vconn-oc", "vbus-change", "attach-detach",
+                     "legacy-cable-detect", "try-snk-src-detect";
+   connector {
+    compatible = "usb-c-connector";
+    power-role = "dual";
+    data-role = "dual";
+    self-powered;
+    typec-power-opmode = "default";
+    pd-disable;
+    vbus-supply = <&pmi632_vbus>;
+    port {
+     pmi632_hs_in: endpoint { remote-endpoint = <&usb_dwc3_hs>; };
+    };
+   };
+  };
+ };
+};
+&usb_dwc3_hs { remote-endpoint = <&pmi632_hs_in>; };
+
+/* Stock Capri uses QUPv3 SE3 at 0x4a8c000 for WCN3990 Bluetooth.
+ * IO=L9A, XO=L16A, RF=L17A, PA=L23A, as recorded in its vendor DT.
+ * Bluetooth shares these supplies with the display and Wi-Fi.
+ */
+&uart3 {
+ status = "okay";
+ pinctrl-names = "default", "sleep";
+ pinctrl-0 = <&capri_bt_uart_default>;
+ pinctrl-1 = <&capri_bt_uart_sleep>;
+ bluetooth {
+  compatible = "qcom,wcn3950-bt";
+  max-speed = <3000000>;
+  vddio-supply = <&vreg_l9a>;
+  vddxo-supply = <&vreg_l16a>;
+  vddrf-supply = <&vreg_l17a>;
+  vddch0-supply = <&vreg_l23a>;
+ };
+};
+&tlmm {
+ capri_bt_uart_default: capri-bt-uart-default-state {
+  cts {
+   pins = "gpio8";
+   function = "qup3";
+   drive-strength = <2>;
+   bias-disable;
+  };
+  rx {
+   pins = "gpio11";
+   function = "qup3";
+   drive-strength = <2>;
+   /* Hold UART idle high while the controller TX is tristated at boot.
+    * See https://lists.openwall.net/linux-kernel/2018/12/28/103
+    */
+   bias-pull-up;
+  };
+  rts {
+   pins = "gpio9";
+   function = "qup3";
+   drive-strength = <2>;
+   bias-pull-down;
+  };
+  tx {
+   pins = "gpio10";
+   function = "qup3";
+   drive-strength = <2>;
+   bias-pull-up;
+  };
+ };
+ capri_bt_uart_sleep: capri-bt-uart-sleep-state {
+  cts-rts-rx {
+   pins = "gpio8", "gpio9", "gpio11";
+   function = "gpio";
+   drive-strength = <2>;
+   bias-pull-down;
+  };
+  tx {
+   pins = "gpio10";
+   function = "gpio";
+   drive-strength = <2>;
+   bias-pull-up;
+  };
+ };
+};
+
+/* Capri's saved Android DT and lpm-levels.c encode CPU power collapse as
+ * mode 3, GDHS as cluster mode 2, and cluster collapse as mode 4. Both
+ * non-default cluster modes request affinity level 1. The generic sm6115
+ * states request CPU modes 2/4, which Capri's firmware rejects.
+ */
+&cluster_0_sleep_0 { arm,psci-suspend-param = <0x41000023>; };
+&cluster_0_sleep_1 { arm,psci-suspend-param = <0x41000043>; };
+&cluster_1_sleep_0 { arm,psci-suspend-param = <0x41000023>; };
+&cluster_1_sleep_1 { arm,psci-suspend-param = <0x41000043>; };
+
+
+&uart3 {
+	/* GPIO11/MPM17 is the stock Bluetooth RX wake route. */
+	interrupts-extended = <&intc GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
+			      <&tlmm 11 IRQ_TYPE_EDGE_FALLING>;
+};
+
+&capri_bt_uart_sleep {
+	cts-rts-rx {
+		pins = "gpio8", "gpio9";
+	};
+	rx {
+		pins = "gpio11";
+		function = "gpio";
+		drive-strength = <2>;
+		/* Keep RX at UART idle, including when the controller tristates
+		 * its output. Pulling it down generates a false falling edge.
+		 */
+		bias-pull-up;
+	};
+};
+
+
+&uart3 {
+	/* Enable the board-specific receive-idle handshake. */
+	motorola,capri-ibs-runtime-pm;
+	bluetooth {
+		motorola,capri-ibs-runtime-pm;
+	};
+};
