@@ -1194,4 +1194,3 @@ config BATTERY_CAPRI_PMI632
 	depends on POWER_SUPPLY && MFD_SPMI_PMIC && OF
 	help
 	  Enable motorola moto g10 pmi632 battery monitor.
-

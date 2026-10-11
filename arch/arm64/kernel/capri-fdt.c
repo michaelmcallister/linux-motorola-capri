@@ -84,7 +84,6 @@ void * __init capri_prepare_fdt(const void *firmware, phys_addr_t *phys, int *si
  copy_prop(fdt, dest, firmware, chosen, "linux,initrd-end", true);
  copy_prop(fdt, dest, firmware, chosen, "bootargs", false);
  capri_copy_wifi_mac(fdt, firmware, chosen);
- /* CONFIG_CMDLINE_FORCE selects Linux boot arguments instead of Android init arguments. */
  fdt_pack(fdt);
  *phys = __pa_symbol(capri_fdt_buffer);
  *size = fdt_totalsize(fdt);

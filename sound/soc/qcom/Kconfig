@@ -262,4 +262,3 @@ config SND_SOC_CAPRI
 	select SND_SOC_QCOM_COMMON
 	help
 	  Enable motorola moto g10 speaker audio.
-

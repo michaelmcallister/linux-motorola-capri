@@ -2930,4 +2930,3 @@ config SND_SOC_AW882XX_CAPRI
 	select CRC32
 	help
 	  Enable motorola moto g10 awinic speaker amplifier.
-
