@@ -473,6 +473,8 @@ struct tty_operations {
 	int (*ldisc_ok)(struct tty_struct *tty, int ldisc);
 	void (*set_ldisc)(struct tty_struct *tty);
 	void (*wait_until_sent)(struct tty_struct *tty, int timeout);
+	/* Sleepable, kernel serdev clients only; serialize against port I/O. */
+	int (*set_rx_idle)(struct tty_struct *tty, bool idle);
 	void (*send_xchar)(struct tty_struct *tty, u8 ch);
 	int (*tiocmget)(struct tty_struct *tty);
 	int (*tiocmset)(struct tty_struct *tty,

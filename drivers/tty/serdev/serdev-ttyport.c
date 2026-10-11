@@ -248,11 +248,24 @@ static int ttyport_break_ctl(struct serdev_controller *ctrl, unsigned int break_
 	return tty->ops->break_ctl(tty, break_state);
 }
 
+static int ttyport_set_rx_idle(struct serdev_controller *ctrl, bool idle)
+{
+	struct serport *serport = serdev_controller_get_drvdata(ctrl);
+	struct tty_struct *tty = serport->tty;
+
+	if (!test_bit(SERPORT_ACTIVE, &serport->flags))
+		return -ENODEV;
+	if (!tty->ops->set_rx_idle)
+		return -EOPNOTSUPP;
+	return tty->ops->set_rx_idle(tty, idle);
+}
+
 static const struct serdev_controller_ops ctrl_ops = {
 	.write_buf = ttyport_write_buf,
 	.write_flush = ttyport_write_flush,
 	.open = ttyport_open,
 	.close = ttyport_close,
+	.set_rx_idle = ttyport_set_rx_idle,
 	.set_flow_control = ttyport_set_flow_control,
 	.set_parity = ttyport_set_parity,
 	.set_baudrate = ttyport_set_baudrate,

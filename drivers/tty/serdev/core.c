@@ -146,6 +146,61 @@ void serdev_device_remove(struct serdev_device *serdev)
 }
 EXPORT_SYMBOL_GPL(serdev_device_remove);
 
+/* Caller holds idle_lock. The client must serialize this with I/O. */
+static int __serdev_device_set_rx_idle(struct serdev_device *serdev, bool idle)
+{
+	struct serdev_controller *ctrl = serdev->ctrl;
+	int ret;
+
+	if (!serdev->opened)
+		return -ENODEV;
+	if (serdev->rx_idle == idle)
+		return 0;
+	if (!ctrl->ops->set_rx_idle)
+		return -EOPNOTSUPP;
+
+	if (idle) {
+		ret = ctrl->ops->set_rx_idle(ctrl, true);
+		if (ret)
+			return ret;
+		serdev->rx_idle = true;
+		/* Release only the reference owned by serdev_device_open(). */
+		pm_runtime_put(&ctrl->dev);
+	} else {
+		ret = pm_runtime_resume_and_get(&ctrl->dev);
+		if (ret < 0)
+			return ret;
+		ret = ctrl->ops->set_rx_idle(ctrl, false);
+		if (ret) {
+			pm_runtime_put(&ctrl->dev);
+			return ret;
+		}
+		serdev->rx_idle = false;
+	}
+	return 0;
+}
+
+/**
+ * serdev_device_set_rx_idle - allow protocol-aware receive idle
+ * @serdev: an open serial device
+ * @idle: true only when the peer permits receive clock gating
+ *
+ * Sleepable. The client must drain TX, negotiate peer sleep, and serialize
+ * this call with writes and port configuration. Clear idle before any I/O.
+ * A supporting controller must preserve a wake path and quiesce receive DMA
+ * before gating clocks. Close restores the open reference before shutdown.
+ */
+int serdev_device_set_rx_idle(struct serdev_device *serdev, bool idle)
+{
+	int ret;
+
+	mutex_lock(&serdev->idle_lock);
+	ret = __serdev_device_set_rx_idle(serdev, idle);
+	mutex_unlock(&serdev->idle_lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(serdev_device_set_rx_idle);
+
 int serdev_device_open(struct serdev_device *serdev)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
@@ -154,22 +209,26 @@ int serdev_device_open(struct serdev_device *serdev)
 	if (!ctrl || !ctrl->ops->open)
 		return -EINVAL;
 
+	mutex_lock(&serdev->idle_lock);
+	if (serdev->opened) {
+		ret = -EBUSY;
+		goto out;
+	}
 	ret = ctrl->ops->open(ctrl);
 	if (ret)
-		return ret;
+		goto out;
 
-	ret = pm_runtime_get_sync(&ctrl->dev);
+	ret = pm_runtime_resume_and_get(&ctrl->dev);
 	if (ret < 0) {
-		pm_runtime_put_noidle(&ctrl->dev);
-		goto err_close;
+		if (ctrl->ops->close)
+			ctrl->ops->close(ctrl);
+		goto out;
 	}
-
-	return 0;
-
-err_close:
-	if (ctrl->ops->close)
-		ctrl->ops->close(ctrl);
-
+	serdev->opened = true;
+	serdev->rx_idle = false;
+	ret = 0;
+out:
+	mutex_unlock(&serdev->idle_lock);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(serdev_device_open);
@@ -177,13 +236,24 @@ EXPORT_SYMBOL_GPL(serdev_device_open);
 void serdev_device_close(struct serdev_device *serdev)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
+	int ret;
 
 	if (!ctrl || !ctrl->ops->close)
 		return;
 
+	mutex_lock(&serdev->idle_lock);
+	if (!serdev->opened)
+		goto out;
+	ret = __serdev_device_set_rx_idle(serdev, false);
+	if (ret) {
+		dev_err(&serdev->dev, "cannot resume port for close: %d\n", ret);
+		goto out;
+	}
 	pm_runtime_put(&ctrl->dev);
-
 	ctrl->ops->close(ctrl);
+	serdev->opened = false;
+out:
+	mutex_unlock(&serdev->idle_lock);
 }
 EXPORT_SYMBOL_GPL(serdev_device_close);
 
@@ -454,6 +524,7 @@ struct serdev_device *serdev_device_alloc(struct serdev_controller *ctrl)
 	serdev->dev.type = &serdev_device_type;
 	init_completion(&serdev->write_comp);
 	mutex_init(&serdev->write_lock);
+	mutex_init(&serdev->idle_lock);
 	return serdev;
 }
 EXPORT_SYMBOL_GPL(serdev_device_alloc);

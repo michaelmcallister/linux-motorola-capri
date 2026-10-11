@@ -39,6 +39,9 @@ struct serdev_device_ops {
  * @ops:	Device operations.
  * @write_comp:	Completion used by serdev_device_write() internally
  * @write_lock:	Lock to serialize access when writing data
+ * @idle_lock:	Serializes open, close and negotiated receive idle
+ * @opened:	Controller has been opened successfully
+ * @rx_idle:	The open runtime-PM reference has been released
  */
 struct serdev_device {
 	struct device dev;
@@ -47,6 +50,9 @@ struct serdev_device {
 	const struct serdev_device_ops *ops;
 	struct completion write_comp;
 	struct mutex write_lock;
+	struct mutex idle_lock;
+	bool opened;
+	bool rx_idle;
 };
 
 #define to_serdev_device(d) container_of_const(d, struct serdev_device, dev)
@@ -82,6 +88,7 @@ struct serdev_controller_ops {
 	void (*write_flush)(struct serdev_controller *);
 	int (*open)(struct serdev_controller *);
 	void (*close)(struct serdev_controller *);
+	int (*set_rx_idle)(struct serdev_controller *ctrl, bool idle);
 	void (*set_flow_control)(struct serdev_controller *, bool);
 	int (*set_parity)(struct serdev_controller *, enum serdev_parity);
 	unsigned int (*set_baudrate)(struct serdev_controller *, unsigned int);
@@ -192,6 +199,7 @@ static inline size_t serdev_controller_receive_buf(struct serdev_controller *ctr
 #if IS_ENABLED(CONFIG_SERIAL_DEV_BUS)
 
 int serdev_device_open(struct serdev_device *);
+int serdev_device_set_rx_idle(struct serdev_device *serdev, bool idle);
 void serdev_device_close(struct serdev_device *);
 int devm_serdev_device_open(struct device *, struct serdev_device *);
 unsigned int serdev_device_set_baudrate(struct serdev_device *, unsigned int);
@@ -231,6 +239,10 @@ static inline void serdev_device_driver_unregister(struct serdev_device_driver *
 static inline int serdev_device_open(struct serdev_device *sdev)
 {
 	return -ENODEV;
+}
+static inline int serdev_device_set_rx_idle(struct serdev_device *sdev, bool idle)
+{
+	return -EOPNOTSUPP;
 }
 static inline void serdev_device_close(struct serdev_device *sdev) {}
 static inline unsigned int serdev_device_set_baudrate(struct serdev_device *sdev, unsigned int baudrate)

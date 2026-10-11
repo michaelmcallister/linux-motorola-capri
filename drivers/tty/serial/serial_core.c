@@ -2665,6 +2665,22 @@ static void uart_poll_put_char(struct tty_driver *driver, int line, char ch)
 }
 #endif
 
+static int uart_set_rx_idle(struct tty_struct *tty, bool idle)
+{
+	struct uart_state *state = tty->driver_data;
+	struct uart_port *uport;
+	int ret = -EOPNOTSUPP;
+
+	mutex_lock(&state->port.mutex);
+	uport = state->uart_port;
+	if (!uport || !tty_port_initialized(&state->port) || uport->suspended)
+		ret = -ENODEV;
+	else if (uport->ops->set_rx_idle)
+		ret = uport->ops->set_rx_idle(uport, idle);
+	mutex_unlock(&state->port.mutex);
+	return ret;
+}
+
 static const struct tty_operations uart_ops = {
 	.install	= uart_install,
 	.open		= uart_open,
@@ -2686,6 +2702,7 @@ static const struct tty_operations uart_ops = {
 	.hangup		= uart_hangup,
 	.break_ctl	= uart_break_ctl,
 	.wait_until_sent= uart_wait_until_sent,
+	.set_rx_idle	= uart_set_rx_idle,
 #ifdef CONFIG_PROC_FS
 	.proc_show	= uart_proc_show,
 #endif

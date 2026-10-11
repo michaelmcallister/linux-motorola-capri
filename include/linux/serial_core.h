@@ -383,6 +383,8 @@ struct uart_ops {
 	void		(*send_xchar)(struct uart_port *, char ch);
 	void		(*stop_rx)(struct uart_port *);
 	void		(*start_rx)(struct uart_port *);
+	/* Sleepable with tty_port.mutex held. Retain a receive wake path. */
+	int		(*set_rx_idle)(struct uart_port *uport, bool idle);
 	void		(*enable_ms)(struct uart_port *);
 	void		(*break_ctl)(struct uart_port *, int ctl);
 	int		(*startup)(struct uart_port *);
