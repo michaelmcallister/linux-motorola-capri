@@ -7,6 +7,9 @@
   voltage-min-design-microvolt = <3200000>;
   voltage-max-design-microvolt = <4400000>;
   charge-full-design-microamp-hours = <4850000>;
+  constant-charge-current-max-microamp = <500000>;
+  constant-charge-voltage-max-microvolt = <4400000>;
+  charge-term-current-microamp = <100000>;
   ocv-capacity-celsius = <25>;
   ocv-capacity-table-0 =
    <4381900 100>,
@@ -74,10 +77,32 @@
   reg = <2 SPMI_USID>;
   #address-cells = <1>;
   #size-cells = <0>;
+  capri_adc: adc@3100 {
+   compatible = "qcom,spmi-adc5";
+   reg = <0x3100>;
+   #address-cells = <1>;
+   #size-cells = <0>;
+   #io-channel-cells = <1>;
+   interrupts = <0x2 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+   channel@1 {
+    reg = <0x01>;
+    qcom,pre-scaling = <1 1>;
+    label = "vref_1p25";
+   };
+   channel@2a {
+    reg = <0x2a>;
+    qcom,pre-scaling = <1 1>;
+    qcom,hw-settle-time = <200>;
+    qcom,ratiometric;
+    label = "batt_therm_30k";
+   };
+  };
   battery-monitor@4800 {
    compatible = "motorola,capri-pmi632-battery";
    reg = <0x4800>;
    monitored-battery = <&capri_battery>;
+   io-channels = <&capri_adc 0x2a>;
+   io-channel-names = "batt-therm";
   };
  };
  pmic@3 {

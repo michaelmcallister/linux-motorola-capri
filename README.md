@@ -20,14 +20,16 @@ Other Moto G10 variants and display panels have not been tested.
 | Speaker | Working; gain limited to −18 dB |
 | Buttons and eMMC | Working |
 | Sensors | Automatic rotation works; light, proximity and gyro data available through SSC |
-| Battery | Voltage and estimated charge level available; charging control not implemented |
+| Battery | Charging at 500 mA, pack temperature, voltage and estimated charge level |
 | RTC | Counter available; calendar time requires userspace calibration |
 | Suspend | Short RTC wake tests pass; long suspend and power-button wake untested |
 | Cellular, cameras and microphone | Not brought up |
 
 The display briefly blanks during rotation. Panel bias power remains managed
-by the firmware. Battery percentage is estimated from voltage and has not been
-calibrated over a full charge cycle.
+by the firmware. Battery percentage is estimated from voltage and measured
+current and has not been calibrated over a full charge cycle. Charging uses the
+JK50 pack's 4.4 V limit, hardware temperature cutoffs at 5–45°C and a charger
+watchdog. Charging pauses during system suspend and resumes after wake.
 
 ## Building
 
